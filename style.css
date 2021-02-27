@@ -12,7 +12,7 @@ p {
     text-align: justify;
 }
 body {
-    background-image: url("strand.jpg");
+    background-image: url("background.jpg");
     background-repeat: repeat-y;
     background-position: top center;
     background-size: cover;
