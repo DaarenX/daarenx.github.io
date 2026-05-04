@@ -1,0 +1,52 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: black;
+    height: 100%;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    position: relative;
+    color: #111;
+    background: #000;
+}
+
+.site-placeholder {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    box-sizing: border-box;
+    opacity: 0;
+    filter: blur(28px);
+    transform: scale(1.02);
+    transition: opacity 1.8s ease, filter 2.2s ease, transform 2.2s ease;
+    background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.7), transparent 38%),
+        linear-gradient(135deg, #f7f7f3 0%, #ecebe6 100%);
+}
+
+.site-placeholder.is-visible {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+}
+
+
+.funnygif {
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+}
+
+canvas {
+    position: fixed;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+}
