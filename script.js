@@ -1,3 +1,12 @@
+const titles = [
+    "𓀀 𓁐 𓁛 𓁼 𓄿 𓆄 𓆑 𓆟 𓆣 𓆭 𓈝 𓊝",
+    "water",
+    "drip drip",
+    "daaren.xyz"
+];
+
+document.title = titles[Math.floor(Math.random() * titles.length)];
+
 const canvas = document.getElementById("glcanvas");
 const gl = canvas.getContext("webgl");
 const dropSound = document.getElementById("dropSound");
