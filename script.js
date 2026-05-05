@@ -30,12 +30,17 @@ if (!gl) {
 gl.clearColor(0, 0, 0, 0);
 
 const DROP_OFFSETS = [0, 2200, 5000, 7100, 9000, 11400, 13400, 15800, 18200, 20900];
+const SOUND_DELAY_MS = 450;
+const MOUSE_FOLLOW_SPEED = 8;
 
-let mouse = [- window.innerWidth, 0];
+let mousePosition = [window.innerWidth * 0.5, window.innerHeight * 0.5];
+let glowPosition = [mousePosition[0], mousePosition[1]];
 const impactPositions = new Array(DROP_OFFSETS.length).fill([0, 0])
 const impactTimes = new Array(DROP_OFFSETS.length).fill(-10);
 let sequenceStarted = false;
 let revealTime = -10;
+let audioPrimed = false;
+let lastMouseInterpolationTime = null;
 
 function resize() {
     canvas.width = window.innerWidth;
@@ -47,8 +52,29 @@ window.addEventListener("resize", resize);
 resize();
 
 window.addEventListener("pointermove", (event) => {
-    mouse = [event.clientX, canvas.height - event.clientY];
+    mousePosition = [event.clientX, canvas.height - event.clientY];
 });
+
+async function primeDropSound() {
+    if (audioPrimed) {
+        return;
+    }
+
+    dropSound.muted = true;
+    dropSound.currentTime = 0;
+
+    try {
+        await dropSound.play();
+        dropSound.pause();
+        dropSound.currentTime = 0;
+        audioPrimed = true;
+    } catch (_error) {
+        dropSound.pause();
+        dropSound.currentTime = 0;
+    } finally {
+        dropSound.muted = false;
+    }
+}
 
 function playDropAt(position, whenSeconds, index) {
     window.setTimeout(() => {
@@ -71,20 +97,24 @@ function playDropAt(position, whenSeconds, index) {
     }, whenSeconds);
 }
 
-window.addEventListener("click", (event) => {
+window.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+        return;
+    }
+
     if (sequenceStarted) {
         return;
     }
 
     sequenceStarted = true;
     let position = [event.clientX, canvas.height - event.clientY];
+
+    void primeDropSound();
     dropSound.currentTime = 0;
 
     window.setTimeout(() => {
         void dropSound.play().catch(() => {});
-    }, 450);
-
-
+    }, SOUND_DELAY_MS);
 
     for (let index = 0; index < DROP_OFFSETS.length; index += 1) {
         playDropAt(position, DROP_OFFSETS[index], index);
@@ -147,6 +177,21 @@ float glow(vec2 uv, vec2 center, float radius, float strength) {
     return strength * exp(-pow(d / radius, 2.0));
 }
 
+float waterRippleField(vec2 uv, vec2 center, float now) {
+    vec2 delta = uv - center;
+    float dist = length(delta);
+    vec2 flowUv = uv;
+
+    flowUv.x += sin((uv.y + now * 0.18) * 26.0) * 0.005;
+    flowUv.y += cos((uv.x - now * 0.14) * 22.0) * 0.005;
+
+    float radialWave = sin(dist * 120.0 - now * 5.2);
+    float crossWave = sin((flowUv.x + flowUv.y) * 42.0 + now * 2.7);
+    float detailWave = cos((flowUv.x - flowUv.y) * 58.0 - now * 3.6);
+
+    return radialWave * 0.5 + crossWave * 0.3 + detailWave * 0.2;
+}
+
 float ringWave(vec2 uv, vec2 center, float startTime, float now, float speed, float width, float decay) {
     float elapsed = now - startTime;
     if (elapsed < 0.0) {
@@ -165,12 +210,18 @@ void main() {
 
     vec3 color = vec3(0.0);
 
-    float cursorGlow = glow(uv, mouseUv, 0.05, 0.28);
+    float cursorGlow = glow(uv, mouseUv, 0.015, 0.8);
+    float cursorWaterMask = glow(uv, mouseUv, 0.04, 1.0);
+    float cursorRipple = waterRippleField(uv, mouseUv, time);
+    float cursorRippleBands = 0.5 + 0.5 * cursorRipple;
     color += vec3(0.72, 0.86, 1.0) * cursorGlow;
+    color += vec3(0.12, 0.22, 0.3) * cursorWaterMask * 0.24;
+    color += vec3(0.24, 0.42, 0.52) * cursorWaterMask * cursorRippleBands * 0.22;
+    color += vec3(0.86, 0.95, 1.0) * cursorWaterMask * pow(cursorRippleBands, 3.0) * 0.12;
 
     float dropDuration = 0.55;
     float waveDelay = 0.02;
-    float waveDuration = 5.8;
+    float waveDuration = 22.0; // TODO just don't make them disappear
 
     for (int i = 0; i < 10; i += 1) {
         vec2 impactUv = impactPositions[i] / resolution;
@@ -186,7 +237,7 @@ void main() {
         float droplet = glow(uv, dropUv, 0.012, 1.0);
 
         if (elapsed <= dropDuration) {
-            color += vec3(1.0, 1.0, 1.0) * (droplet * 0.9);
+            color += vec3(0.45, 0.65, 1.0) * (droplet * 0.9);
         }
 
         float waveElapsed = elapsed - dropDuration - waveDelay;
@@ -195,10 +246,16 @@ void main() {
             float ringWidth = mix(0.012, 0.004, clamp(waveElapsed / waveDuration, 0.0, 1.0));
             float dist = distance(uv, impactUv);
             float ring = exp(-pow((dist - radius) / ringWidth, 2.0));
+            float waveMask = exp(-pow(dist / (radius), 2.0));
+            float waveRipple = waterRippleField(uv, impactUv, time + waveElapsed * 0.6);
+            float waveRippleBands = 0.5 + 0.5 * waveRipple;
             float fade = exp(-waveElapsed * 0.75);
             float splash = glow(uv, impactUv, 0.018, 1.0) * exp(-waveElapsed * 2.0);
 
-            color += vec3(1.0, 1.0, 1.0) * (ring * fade * 0.85 + splash * 0.45);
+            color += vec3(0.45, 0.65, 1.0) * (ring * fade * 0.85 + splash * 0.45);
+            color += vec3(0.12, 0.22, 0.3) * waveMask * fade * 0.12;
+            color += vec3(0.24, 0.42, 0.52) * waveMask * waveRippleBands * fade * 0.16;
+            color += vec3(0.86, 0.95, 1.0) * ring * fade * pow(waveRippleBands, 3.0) * 0.18;
         }
     }
 
@@ -255,13 +312,32 @@ const uImpactPositions = gl.getUniformLocation(program, "impactPositions");
 const uImpactTimes = gl.getUniformLocation(program, "impactTimes");
 const uRevealTime = gl.getUniformLocation(program, "revealTime");
 
+
+
+function interpolateGlowPosition(time) {
+    if (lastMouseInterpolationTime === null) {
+        glowPosition = [mousePosition[0], mousePosition[1]];
+        lastMouseInterpolationTime = time;
+        return;
+    }
+
+    const deltaSeconds = (time - lastMouseInterpolationTime) * 0.001;
+    lastMouseInterpolationTime = time;
+
+    const interpolationFactor = 1 - Math.exp(-MOUSE_FOLLOW_SPEED * deltaSeconds);
+    glowPosition[0] += (mousePosition[0] - glowPosition[0]) * interpolationFactor;
+    glowPosition[1] += (mousePosition[1] - glowPosition[1]) * interpolationFactor;
+}
+
 function render(frameTime) {
     const seconds = frameTime * 0.001;
+    interpolateGlowPosition(frameTime)
+
 
     gl.clear(gl.COLOR_BUFFER_BIT);
     const resolution = Math.max(canvas.width, canvas.height)
     gl.uniform2f(uResolution, resolution, resolution);
-    gl.uniform2f(uMouse, mouse[0], mouse[1]);
+    gl.uniform2f(uMouse, glowPosition[0], glowPosition[1]);
     gl.uniform1f(uTime, seconds);
     gl.uniform2fv(uImpactPositions, new Float32Array(impactPositions.flat()));
     gl.uniform1fv(uImpactTimes, new Float32Array(impactTimes));
