@@ -46,7 +46,7 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-window.addEventListener("mousemove", (event) => {
+window.addEventListener("pointermove", (event) => {
     mouse = [event.clientX, canvas.height - event.clientY];
 });
 
