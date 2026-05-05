@@ -13,12 +13,12 @@ const dropSound = document.getElementById("dropSound");
 const siteContent = document.getElementById("siteContent");
 const img = document.getElementById('funnygif');
 
-// 1. Disable Right-Click (Context Menu)
+// Disable Right-Click (Context Menu)
 img.addEventListener('contextmenu', (e) => {
     e.preventDefault();
 });
 
-// 2. Disable Dragging
+// Disable Dragging
 img.addEventListener('dragstart', (e) => {
     e.preventDefault();
 });
@@ -31,7 +31,6 @@ gl.clearColor(0, 0, 0, 0);
 
 const DROP_OFFSETS = [0, 2200, 5000, 7100, 9000, 11400, 13400, 15800, 18200, 20900];
 
-// TODO mouse and Impact Positions
 let mouse = [- window.innerWidth, 0];
 const impactPositions = new Array(DROP_OFFSETS.length).fill([0, 0])
 const impactTimes = new Array(DROP_OFFSETS.length).fill(-10);
@@ -171,7 +170,7 @@ void main() {
 
     float dropDuration = 0.55;
     float waveDelay = 0.02;
-    float waveDuration = 2.8;
+    float waveDuration = 5.8;
 
     for (int i = 0; i < 10; i += 1) {
         vec2 impactUv = impactPositions[i] / resolution;
@@ -187,19 +186,19 @@ void main() {
         float droplet = glow(uv, dropUv, 0.012, 1.0);
 
         if (elapsed <= dropDuration) {
-            color += vec3(0.45, 0.65, 1.0) * (droplet * 0.9);
+            color += vec3(1.0, 1.0, 1.0) * (droplet * 0.9);
         }
 
         float waveElapsed = elapsed - dropDuration - waveDelay;
         if (waveElapsed >= 0.0) {
-            float radius = waveElapsed * 0.34;
+            float radius = waveElapsed * 0.15;
             float ringWidth = mix(0.012, 0.004, clamp(waveElapsed / waveDuration, 0.0, 1.0));
             float dist = distance(uv, impactUv);
             float ring = exp(-pow((dist - radius) / ringWidth, 2.0));
-            float fade = exp(-waveElapsed * 1.35);
-            float splash = glow(uv, impactUv, 0.018, 1.0) * exp(-waveElapsed * 8.0);
+            float fade = exp(-waveElapsed * 0.75);
+            float splash = glow(uv, impactUv, 0.018, 1.0) * exp(-waveElapsed * 2.0);
 
-            color += vec3(0.55, 0.75, 1.0) * (ring * fade * 0.85 + splash * 0.45);
+            color += vec3(1.0, 1.0, 1.0) * (ring * fade * 0.85 + splash * 0.45);
         }
     }
 
