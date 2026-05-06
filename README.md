@@ -6,6 +6,7 @@ Water Drops by Kostas17 -- https://freesound.org/s/532171/ -- License: Attributi
 Funny gif https://tenor.com/de/view/funny-gif-8085134558050569704
 
 # TODO
+- fix audio timing on mobile
 - glow as transparency showing gif in waves ?
 - clean up the shader mess
 - clean up the other mess

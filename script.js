@@ -32,19 +32,21 @@ gl.clearColor(0, 0, 0, 0);
 const DROP_OFFSETS = [0, 2200, 5000, 7100, 9000, 11400, 13400, 15800, 18200, 20900];
 const SOUND_DELAY_MS = 450;
 const MOUSE_FOLLOW_SPEED = 8;
+let pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
-let mousePosition = [window.innerWidth * 0.5, window.innerHeight * 0.5];
+let mousePosition = [window.innerWidth * 0.5 * pixelRatio, window.innerHeight * 0.5 * pixelRatio];
 let glowPosition = [mousePosition[0], mousePosition[1]];
 const impactPositions = new Array(DROP_OFFSETS.length).fill([0, 0])
-const impactTimes = new Array(DROP_OFFSETS.length).fill(-10);
+const impactTimes = new Array(DROP_OFFSETS.length).fill(-100);
 let sequenceStarted = false;
 let revealTime = -10;
 let audioPrimed = false;
 let lastMouseInterpolationTime = null;
 
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(window.innerWidth * pixelRatio);
+    canvas.height = Math.round(window.innerHeight * pixelRatio);
     gl.viewport(0, 0, canvas.width, canvas.height);
 }
 
@@ -52,7 +54,7 @@ window.addEventListener("resize", resize);
 resize();
 
 window.addEventListener("pointermove", (event) => {
-    mousePosition = [event.clientX, canvas.height - event.clientY];
+    mousePosition = [event.clientX * pixelRatio, (window.innerHeight - event.clientY) * pixelRatio];
 });
 
 async function primeDropSound() {
@@ -107,7 +109,7 @@ window.addEventListener("pointerdown", (event) => {
     }
 
     sequenceStarted = true;
-    let position = [event.clientX, canvas.height - event.clientY];
+    let position = [event.clientX * pixelRatio, (window.innerHeight - event.clientY) * pixelRatio];
 
     void primeDropSound();
     dropSound.currentTime = 0;
@@ -118,7 +120,10 @@ window.addEventListener("pointerdown", (event) => {
 
     for (let index = 0; index < DROP_OFFSETS.length; index += 1) {
         playDropAt(position, DROP_OFFSETS[index], index);
-        position = [(Math.random() * 0.5 + 0.25) * window.innerWidth, (Math.random() * 0.5 + 0.25) * window.innerHeight]
+        position = [
+            (Math.random() * 0.5 + 0.25) * window.innerWidth * pixelRatio,
+            (Math.random() * 0.5 + 0.25) * window.innerHeight * pixelRatio
+        ];
     }
 });
 
@@ -205,8 +210,9 @@ float ringWave(vec2 uv, vec2 center, float startTime, float now, float speed, fl
 }
 
 void main() {
-    vec2 uv = gl_FragCoord.xy / resolution;
-    vec2 mouseUv = mouse / resolution;
+    float minDimension = min(resolution.x, resolution.y);
+    vec2 uv = gl_FragCoord.xy / minDimension;
+    vec2 mouseUv = mouse / minDimension;
 
     vec3 color = vec3(0.0);
 
@@ -224,7 +230,7 @@ void main() {
     float waveDuration = 22.0; // TODO just don't make them disappear
 
     for (int i = 0; i < 10; i += 1) {
-        vec2 impactUv = impactPositions[i] / resolution;
+        vec2 impactUv = impactPositions[i] / minDimension;
         float elapsed = time - impactTimes[i];
 
         if (elapsed < 0.0 || elapsed >= dropDuration + waveDuration) {
@@ -265,7 +271,7 @@ void main() {
     }
 
     if (revealElapsed >= 0.0) {
-        vec2 impactUv = impactPositions[9] / resolution;
+        vec2 impactUv = impactPositions[9] / minDimension;
         float washRadius = revealElapsed * 0.52;
         float dist = distance(uv, impactUv);
         float wash = smoothstep(washRadius - 0.12, washRadius + 0.04, dist);
@@ -335,8 +341,7 @@ function render(frameTime) {
 
 
     gl.clear(gl.COLOR_BUFFER_BIT);
-    const resolution = Math.max(canvas.width, canvas.height)
-    gl.uniform2f(uResolution, resolution, resolution);
+    gl.uniform2f(uResolution, canvas.width, canvas.height);
     gl.uniform2f(uMouse, glowPosition[0], glowPosition[1]);
     gl.uniform1f(uTime, seconds);
     gl.uniform2fv(uImpactPositions, new Float32Array(impactPositions.flat()));
