@@ -99,11 +99,7 @@ function playDropAt(position, whenSeconds, index) {
     }, whenSeconds);
 }
 
-window.addEventListener("pointerdown", (event) => {
-    if (event.pointerType === "mouse" && event.button !== 0) {
-        return;
-    }
-
+window.addEventListener("click", (event) => {
     if (sequenceStarted) {
         return;
     }
@@ -210,27 +206,26 @@ float ringWave(vec2 uv, vec2 center, float startTime, float now, float speed, fl
 }
 
 void main() {
-    float minDimension = min(resolution.x, resolution.y);
-    vec2 uv = gl_FragCoord.xy / minDimension;
-    vec2 mouseUv = mouse / minDimension;
+    float dimension = max(resolution.x, resolution.y);
+    vec2 uv = gl_FragCoord.xy / dimension;
+    vec2 mouseUv = mouse / dimension;
 
     vec3 color = vec3(0.0);
 
     float cursorGlow = glow(uv, mouseUv, 0.015, 0.8);
-    float cursorWaterMask = glow(uv, mouseUv, 0.04, 1.0);
-    float cursorRipple = waterRippleField(uv, mouseUv, time);
-    float cursorRippleBands = 0.5 + 0.5 * cursorRipple;
+    float cursorWaterMask = glow(uv, mouseUv, 0.02, 1.0);
+    float cursorRipple = 0.5 + 0.5 * waterRippleField(uv, mouseUv, time);
     color += vec3(0.72, 0.86, 1.0) * cursorGlow;
     color += vec3(0.12, 0.22, 0.3) * cursorWaterMask * 0.24;
-    color += vec3(0.24, 0.42, 0.52) * cursorWaterMask * cursorRippleBands * 0.22;
-    color += vec3(0.86, 0.95, 1.0) * cursorWaterMask * pow(cursorRippleBands, 3.0) * 0.12;
+    color += vec3(0.24, 0.42, 0.52) * cursorWaterMask * cursorRipple * 0.44;
+    color += vec3(0.86, 0.95, 1.0) * cursorWaterMask * pow(cursorRipple, 3.0) * 0.24;
 
     float dropDuration = 0.55;
     float waveDelay = 0.02;
     float waveDuration = 22.0; // TODO just don't make them disappear
 
     for (int i = 0; i < 10; i += 1) {
-        vec2 impactUv = impactPositions[i] / minDimension;
+        vec2 impactUv = impactPositions[i] / dimension;
         float elapsed = time - impactTimes[i];
 
         if (elapsed < 0.0 || elapsed >= dropDuration + waveDuration) {
@@ -253,15 +248,14 @@ void main() {
             float dist = distance(uv, impactUv);
             float ring = exp(-pow((dist - radius) / ringWidth, 2.0));
             float waveMask = exp(-pow(dist / (radius), 2.0));
-            float waveRipple = waterRippleField(uv, impactUv, time + waveElapsed * 0.6);
-            float waveRippleBands = 0.5 + 0.5 * waveRipple;
+            float waveRipple = 0.5 + 0.5 * waterRippleField(uv, impactUv, time + waveElapsed * 0.01);
             float fade = exp(-waveElapsed * 0.75);
             float splash = glow(uv, impactUv, 0.018, 1.0) * exp(-waveElapsed * 2.0);
 
             color += vec3(0.45, 0.65, 1.0) * (ring * fade * 0.85 + splash * 0.45);
-            color += vec3(0.12, 0.22, 0.3) * waveMask * fade * 0.12;
-            color += vec3(0.24, 0.42, 0.52) * waveMask * waveRippleBands * fade * 0.16;
-            color += vec3(0.86, 0.95, 1.0) * ring * fade * pow(waveRippleBands, 3.0) * 0.18;
+            color += vec3(0.12, 0.22, 0.3) * waveMask * fade * 0.24;
+            color += vec3(0.24, 0.42, 0.52) * waveMask * waveRipple * fade * 0.32;
+            color += vec3(0.86, 0.95, 1.0) * ring * fade * pow(waveRipple, 3.0) * 0.36;
         }
     }
 
@@ -271,7 +265,7 @@ void main() {
     }
 
     if (revealElapsed >= 0.0) {
-        vec2 impactUv = impactPositions[9] / minDimension;
+        vec2 impactUv = impactPositions[9] / dimension;
         float washRadius = revealElapsed * 0.52;
         float dist = distance(uv, impactUv);
         float wash = smoothstep(washRadius - 0.12, washRadius + 0.04, dist);
